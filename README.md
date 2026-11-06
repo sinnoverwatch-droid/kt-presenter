@@ -17,6 +17,14 @@ La configuración se guarda en `localStorage` y el PDF en IndexedDB, asociados a
 
 La ventana de audiencia se sincroniza mediante BroadcastChannel en el mismo dispositivo y perfil del navegador. No es un enlace para que otras personas se conecten ni una implementación de participación por QR. Si la tablet suspende la pestaña del presentador, la audiencia puede dejar de recibir actualizaciones hasta reactivarla.
 
+## Interacciones sobre las páginas del PDF
+
+Con una fase de contenido abierta, cargar el PDF original y pulsar **Agregar interacción a esta página**. La app extrae hasta 700 caracteres de texto como punto de partida editable; en un PDF escaneado se escribe el contexto manualmente. No genera preguntas o respuestas con IA.
+
+El panel permite escribir un título, una situación, una pregunta y hasta seis opciones. Elegir la respuesta correcta si corresponde. La actividad aparece junto al PDF y se transmite a la audiencia; el presentador puede seleccionar una opción y revelar la solución. **Ocultar actividad** vuelve a mostrar solo el documento, sin borrar la configuración.
+
+Cada interacción queda vinculada a la página y a la huella del documento. Al navegar a otra página desaparece y al regresar se recupera, con la solución nuevamente oculta. El guardado pertenece a la presentación, fuera del PDF: no cambia sus bytes ni requiere crear otro archivo. Cambiar de PDF no aplica automáticamente las actividades del anterior. Los cronómetros, fases y descansos siguen siendo controles de la app.
+
 ## Versión web para tablet
 
 [Publicación con GitHub Pages y pruebas desde una tablet](docs/WEB-PREVIEW.md). El workflow publica únicamente la interfaz y los recursos de PDF.js; no incluye Electron ni envía tus documentos a un servidor.

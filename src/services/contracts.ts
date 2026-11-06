@@ -6,6 +6,7 @@ export interface Presentation {
   description: string;
   updatedAt: string;
   phases: Phase[];
+  enrichments?: PageEnrichment[];
 }
 export interface Phase {
   id: string;
@@ -31,4 +32,17 @@ export interface PdfRenderer {
     page: number,
     canvas: HTMLCanvasElement,
   ): Promise<void>;
+}
+
+// Stored alongside the presentation, never written into the source PDF.
+export interface PageEnrichment {
+  id: string;
+  documentKey: string;
+  page: number;
+  title: string;
+  context: string;
+  question: string;
+  options: string[];
+  correctAnswer?: number;
+  visible: boolean;
 }

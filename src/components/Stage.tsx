@@ -16,13 +16,23 @@ export interface PublicStage {
   question: string;
   options: string[];
   revealedAnswer?: number;
+  enrichment?: {
+    title: string;
+    context: string;
+    question: string;
+    options: string[];
+    selectedAnswer?: number;
+    revealedAnswer?: number;
+  };
 }
 export function Stage({
   state,
   document,
+  onChoice,
 }: {
   state: PublicStage;
   document?: PDFDocumentProxy;
+  onChoice?(index: number): void;
 }) {
   if (state.kind === "break")
     return (
@@ -71,6 +81,60 @@ export function Stage({
         )}
       </div>
     );
+  if (document && state.enrichment) {
+    const activity = state.enrichment;
+    return (
+      <div className="enhanced-stage">
+        <div className="enhanced-document">
+          <span className="eyebrow">
+            DOCUMENTO ORIGINAL · PÁGINA {state.page}
+          </span>
+          <PdfCanvas
+            document={document}
+            page={Math.min(Math.max(1, state.page), document.numPages)}
+          />
+        </div>
+        <section className="page-interaction">
+          <span className="eyebrow">CONVERSAMOS SOBRE ESTA PÁGINA</span>
+          <h2>{activity.title}</h2>
+          {activity.context && (
+            <div className="scenario-context">{activity.context}</div>
+          )}
+          <h3>{activity.question}</h3>
+          <div className="question-options">
+            {activity.options.map((option, i) => {
+              if (!option.trim()) return null;
+              const content = (
+                <>
+                  <span>{String.fromCharCode(65 + i)}</span>
+                  {option}
+                  {activity.revealedAnswer === i && <strong>Correcta</strong>}
+                </>
+              );
+              const className = `answer ${activity.revealedAnswer === i ? "correct" : ""} ${activity.selectedAnswer === i ? "chosen" : ""}`;
+              return onChoice ? (
+                <button
+                  aria-pressed={activity.selectedAnswer === i}
+                  key={i}
+                  className={className}
+                  onClick={() => onChoice(i)}
+                >
+                  {content}
+                </button>
+              ) : (
+                <div key={i} className={className}>
+                  {content}
+                </div>
+              );
+            })}
+          </div>
+          {!activity.options.some((option) => option.trim()) && (
+            <p className="session-hint">Compartí tu respuesta con el grupo.</p>
+          )}
+        </section>
+      </div>
+    );
+  }
   return document ? (
     <PdfCanvas
       document={document}

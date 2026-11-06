@@ -18,7 +18,11 @@ import {
   Upload,
 } from "lucide-react";
 import type { PDFDocumentProxy } from "pdfjs-dist";
-import type { Presentation, Phase } from "../services/contracts";
+import type {
+  Presentation,
+  Phase,
+  PageEnrichment,
+} from "../services/contracts";
 import {
   readDocument,
   saveDocument,
@@ -27,6 +31,7 @@ import {
 import { useSessionClock, formatTime } from "../hooks/useSessionClock";
 import { openPdf } from "./PdfCanvas";
 import { Stage, type PublicStage } from "./Stage";
+import { EnrichmentEditor } from "./EnrichmentEditor";
 interface Props {
   presentation: Presentation;
   onChange(p: Presentation): void;
@@ -38,6 +43,8 @@ const kinds = {
   break: "Descanso",
 } as const;
 export function Session({ presentation, onChange, onBack }: Props) {
+  const presentationRef = useRef(presentation);
+  presentationRef.current = presentation;
   const [phaseId, setPhaseId] = useState(presentation.phases[0].id);
   const index = Math.max(
     0,
@@ -57,6 +64,25 @@ export function Session({ presentation, onChange, onBack }: Props) {
   const upload = useRef<HTMLInputElement>(null);
   const channel = useRef<BroadcastChannel | undefined>(undefined);
   const importGeneration = useRef(0);
+  const [enrichmentRevealed, setEnrichmentRevealed] = useState(false);
+  const [choice, setChoice] = useState<number>();
+  const [extracting, setExtracting] = useState(false);
+  const enrichment = presentation.enrichments?.find(
+    (item) =>
+      item.documentKey === document?.fingerprints[0] && item.page === page,
+  );
+  const updateEnrichment = (changes: Partial<PageEnrichment>) => {
+    if (!enrichment) return;
+    onChange({
+      ...presentation,
+      updatedAt: new Date().toISOString(),
+      enrichments: presentation.enrichments?.map((item) =>
+        item.id === enrichment.id ? { ...item, ...changes } : item,
+      ),
+    });
+    setEnrichmentRevealed(false);
+    setChoice(undefined);
+  };
   const state: PublicStage = {
     title: presentation.title,
     phaseTitle: phase.title,
@@ -70,6 +96,19 @@ export function Session({ presentation, onChange, onBack }: Props) {
     question: phase.question || "",
     options: phase.options || [],
     revealedAnswer: revealed ? phase.correctAnswer : undefined,
+    enrichment:
+      kind === "content" && enrichment?.visible
+        ? {
+            title: enrichment.title,
+            context: enrichment.context,
+            question: enrichment.question,
+            options: enrichment.options,
+            selectedAnswer: choice,
+            revealedAnswer: enrichmentRevealed
+              ? enrichment.correctAnswer
+              : undefined,
+          }
+        : undefined,
   };
   const latest = useRef({ state, blob: stored?.blob });
   latest.current = { state, blob: stored?.blob };
@@ -147,6 +186,8 @@ export function Session({ presentation, onChange, onBack }: Props) {
     clock.phaseElapsed,
     clock.running,
     revealed,
+    choice,
+    enrichmentRevealed,
   ]);
   useEffect(() => {
     if (stored)
@@ -262,6 +303,56 @@ export function Session({ presentation, onChange, onBack }: Props) {
     if (document)
       setPage((value) => Math.max(1, Math.min(value, document.numPages)));
   }, [document, page]);
+  useEffect(() => {
+    setChoice(undefined);
+    setEnrichmentRevealed(false);
+  }, [page, phase.id, document]);
+  async function addEnrichment() {
+    if (!document || enrichment) return;
+    const documentKey = document.fingerprints[0];
+    if (!documentKey) return;
+    const generation = importGeneration.current;
+    setExtracting(true);
+    let context = "";
+    try {
+      const pdfPage = await document.getPage(page);
+      const text = await pdfPage.getTextContent();
+      context = text.items
+        .map((item) => ("str" in item ? item.str : ""))
+        .join(" ")
+        .replace(/\s+/g, " ")
+        .slice(0, 700);
+    } catch {
+      /* A scanned page can still receive a manually written activity. */
+    }
+    if (
+      generation !== importGeneration.current ||
+      latest.current.state.page !== page
+    ) {
+      setExtracting(false);
+      return;
+    }
+    const currentPresentation = presentationRef.current;
+    const next: PageEnrichment = {
+      id: crypto.randomUUID(),
+      documentKey,
+      page,
+      title: "Del contenido a la práctica",
+      context,
+      question: "¿Qué idea de esta página aplicarías en tu trabajo?",
+      options: [],
+      visible: true,
+    };
+    onChange({
+      ...currentPresentation,
+      updatedAt: new Date().toISOString(),
+      enrichments: [...(currentPresentation.enrichments || []), next],
+    });
+    setExtracting(false);
+    setStatus(
+      "Actividad creada a partir del texto de la página. Editá el contexto, la pregunta y sus opciones en el panel. No se generan respuestas automáticamente.",
+    );
+  }
   async function audience() {
     setStatus("");
     try {
@@ -372,7 +463,7 @@ export function Session({ presentation, onChange, onBack }: Props) {
             </span>
           </div>
           <div className="stage-screen">
-            <Stage state={state} document={document} />
+            <Stage state={state} document={document} onChoice={setChoice} />
           </div>
           <div className="document-controls">
             <button
@@ -422,6 +513,35 @@ export function Session({ presentation, onChange, onBack }: Props) {
               </div>
             )}
           </div>
+          {document && kind === "content" && (
+            <div className="page-enrichment-toolbar">
+              <div>
+                <strong>Convertí esta página en una experiencia</strong>
+                <p>
+                  Situaciones, preguntas y opciones junto a tu PDF. Sin
+                  modificar el archivo.
+                </p>
+              </div>
+              <button
+                className="primary"
+                disabled={extracting}
+                onClick={() => {
+                  if (enrichment)
+                    window.document
+                      .getElementById("activity-editor")
+                      ?.scrollIntoView({ behavior: "smooth", block: "start" });
+                  else void addEnrichment();
+                }}
+              >
+                <MessageCircle size={15} />
+                {enrichment
+                  ? "Editar interacción"
+                  : extracting
+                    ? "Leyendo página…"
+                    : "Agregar interacción a esta página"}
+              </button>
+            </div>
+          )}
           {error && (
             <p className="notice" role="alert">
               {error}
@@ -604,6 +724,16 @@ export function Session({ presentation, onChange, onBack }: Props) {
                 La audiencia participa de forma oral. Las respuestas por QR
                 vendrán en otra etapa.
               </p>
+            </div>
+          )}
+          {kind === "content" && enrichment && (
+            <div id="activity-editor">
+              <EnrichmentEditor
+                value={enrichment}
+                onChange={updateEnrichment}
+                revealed={enrichmentRevealed}
+                onReveal={() => setEnrichmentRevealed(!enrichmentRevealed)}
+              />
             </div>
           )}
           <label htmlFor="session-notes" className="private-notes-label">

@@ -27,6 +27,10 @@ Las pruebas web verifican los flujos anteriores y la privacidad del contenido en
 
 La interfaz y el flujo de guardado se verificaron con Chromium en Linux. La validación de la ventana Electron y las pruebas en Windows están pendientes. No se ha generado un instalador de Windows.
 
+## Tercera etapa: interacciones por página (v0.3)
+
+La app agrega contexto, preguntas y opciones junto a la página del PDF. Las actividades se guardan en la presentación y se vinculan a la huella del documento, sin modificar el original. Selección de opciones, revelado, ocultación y audiencia sincronizada están implementados. La extracción de texto es una ayuda de edición, no generación semántica con IA.
+
 ## Iteraciones previstas
 
 1. **Almacenamiento SQLite.** Implementar `PresentationRepository` en el proceso principal de Electron, migraciones y operaciones IPC validadas. Usar `app.getPath('userData')` para la base. Migrar los datos provisionales antes de retirar localStorage y comprobar que sobrevivan al reinicio.
