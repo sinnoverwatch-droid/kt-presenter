@@ -1,14 +1,16 @@
-const { app, BrowserWindow } = require("electron");
+const { app, BrowserWindow, ipcMain } = require("electron");
 const path = require("node:path");
 const isDev = process.argv.includes("--dev");
-function createWindow() {
+let presenterWindow;
+let audienceWindow;
+function createWindow(audienceId) {
   const window = new BrowserWindow({
     width: 1440,
     height: 960,
     minWidth: 640,
     minHeight: 560,
     backgroundColor: "#101218",
-    title: "KT Presenter",
+    title: audienceId ? "KT Presenter · Audiencia" : "KT Presenter",
     webPreferences: {
       preload: path.join(__dirname, "preload.cjs"),
       contextIsolation: true,
@@ -25,18 +27,36 @@ function createWindow() {
           responseHeaders: {
             ...details.responseHeaders,
             "Content-Security-Policy": [
-              "default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data:; connect-src 'none'; object-src 'none'; base-uri 'self'; frame-src 'none'",
+              "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; worker-src 'self' blob:; style-src 'self'; img-src 'self' data: blob:; font-src 'self' data: blob:; connect-src 'self' blob:; object-src 'none'; base-uri 'self'; frame-src 'none'",
             ],
           },
         }),
     );
-  if (isDev) window.loadURL("http://127.0.0.1:5173");
-  else window.loadFile(path.join(__dirname, "../dist/index.html"));
+  const hash = audienceId ? `audience=${encodeURIComponent(audienceId)}` : "";
+  if (isDev)
+    void window.loadURL(`http://127.0.0.1:5173/${hash ? "#" + hash : ""}`);
+  else
+    void window.loadFile(path.join(__dirname, "../dist/index.html"), { hash });
+  return window;
 }
 app.whenReady().then(() => {
-  createWindow();
+  presenterWindow = createWindow();
+  ipcMain.handle("kt:open-audience", (event, id) => {
+    if (
+      event.sender !== presenterWindow?.webContents ||
+      typeof id !== "string" ||
+      !/^[a-zA-Z0-9-]{1,128}$/.test(id)
+    )
+      throw new Error("Solicitud de audiencia inválida.");
+    if (audienceWindow && !audienceWindow.isDestroyed()) audienceWindow.close();
+    const next = createWindow(id);
+    audienceWindow = next;
+    next.on("closed", () => {
+      if (audienceWindow === next) audienceWindow = undefined;
+    });
+  });
   app.on("activate", () => {
-    if (!BrowserWindow.getAllWindows().length) createWindow();
+    if (!BrowserWindow.getAllWindows().length) presenterWindow = createWindow();
   });
 });
 app.on("window-all-closed", () => {

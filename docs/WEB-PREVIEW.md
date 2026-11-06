@@ -24,9 +24,9 @@ La URL solo estará disponible después de un despliegue exitoso. No debe confun
 
 ## Comprobación desde la tablet
 
-Abrir el enlace HTTPS en Safari o Chrome, sin necesidad de estar en la misma red que una PC. Probar Inicio, crear una presentación, editar sus fases y notas, marcar avances, volver al panel y buscarla. Recargar para comprobar el guardado.
+Abrir el enlace HTTPS en Safari o Chrome, sin necesidad de estar en la misma red que una PC. Probar Inicio, crear una presentación, editar sus fases y notas, marcar avances, volver al panel y buscarla. Cargar un PDF, navegar páginas, agregar una pregunta y un descanso, iniciar y pausar el cronómetro y abrir la audiencia. Recargar para comprobar el guardado del documento y la planificación; los cronómetros se reinician.
 
-Los datos se guardan en el navegador de cada dispositivo y origen. No hay sincronización con la PC, con otros navegadores ni con la aplicación Electron. Borrar los datos del sitio elimina esas presentaciones locales. La web aún no es una aplicación offline ni ofrece importación de documentos, ventanas de audiencia o participación por QR.
+Los datos se guardan en el navegador de cada dispositivo y origen. No hay sincronización con la PC, con otros navegadores ni con la aplicación Electron. Borrar los datos del sitio elimina esas presentaciones locales. La web admite PDF, fases de contenido, preguntas y descansos, cronómetros y una ventana de audiencia sincronizada en el mismo dispositivo. Los PDF se guardan en IndexedDB. No hay PPTX directo, participación por QR ni soporte offline completo. Para la audiencia se deben permitir ventanas emergentes; en tablet puede abrirse como pestaña. No conecta una tablet con la audiencia de otra PC.
 
 ## Comprobación local del sitio compilado
 

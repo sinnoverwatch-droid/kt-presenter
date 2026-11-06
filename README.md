@@ -1,54 +1,62 @@
 # KT Presenter
 
-Aplicación de escritorio orientada a Windows para presentaciones, clases, capacitaciones y sesiones de Knowledge Transfer (KT), organizadas en fases. Base inicial con React 19, TypeScript, Vite y Electron, en español, con tema oscuro y diseño adaptable.
+Aplicación de escritorio orientada a Windows para conducir presentaciones, clases, capacitaciones y sesiones de Knowledge Transfer. React 19, TypeScript, Vite y Electron, con tema oscuro e interfaz adaptable. La versión web permite probarla desde una tablet.
 
-El alcance de esta primera entrega y las próximas funciones están documentados en [el plan incremental](docs/ROADMAP.md).
+## Conducir una KT
+
+1. Crear una presentación o abrir una existente.
+2. Pulsar **Cargar PDF** y seleccionar un documento de hasta 30 MB, válido y sin contraseña. PDF.js renderiza sus páginas localmente. Para PowerPoint, exportar primero a PDF; la importación directa de PPTX sigue pendiente.
+3. Navegar con los botones de página o las flechas del teclado cuando no se está editando. En cada fase de contenido, usar **Comenzar esta fase en página…** para vincular su página inicial.
+4. Intercalar fases de contenido, preguntas y descansos. Se insertan después de la fase actual; **Mover antes / Mover después** cambia el orden. Editar duración, título y notas privadas.
+5. Usar **Iniciar / Pausar cronómetro** para controlar la sesión. El tiempo total acumula todas las fases, incluidos los descansos. Cada fase conserva su tiempo consumido al navegar. Un tiempo excedido se muestra con `+`. Se puede sumar un minuto, reiniciar una fase o reiniciar todos los cronómetros.
+6. Agregar una pregunta, escribir hasta seis opciones y elegir la respuesta correcta. **Revelar respuesta** la muestra al grupo. También se admiten preguntas abiertas sin opciones. La participación es oral; todavía no se recopilan respuestas desde otros dispositivos.
+7. Pulsar **Abrir audiencia** para mostrar solo el contenido y los tiempos en otra ventana. En PC, moverla al proyector o segundo monitor y activar pantalla completa desde esa ventana. En tablet puede abrirse como pestaña; permitir ventanas emergentes si el navegador las bloquea.
+8. **Presentar** amplía el espacio de conducción; Escape vuelve a su tamaño habitual. Las notas siguen siendo privadas y no se envían a la ventana de audiencia.
+
+La configuración se guarda en `localStorage` y el PDF en IndexedDB, asociados a la presentación. Los tiempos transcurridos pertenecen a la sesión en curso: se reinician al volver al panel o recargar. Cada navegador y la aplicación Electron tienen almacenamiento independiente. No hay sincronización entre dispositivos. Borrar los datos del sitio elimina los datos locales.
+
+La ventana de audiencia se sincroniza mediante BroadcastChannel en el mismo dispositivo y perfil del navegador. No es un enlace para que otras personas se conecten ni una implementación de participación por QR. Si la tablet suspende la pestaña del presentador, la audiencia puede dejar de recibir actualizaciones hasta reactivarla.
 
 ## Versión web para tablet
 
-El proyecto puede publicarse en GitHub Pages con el workflow de GitHub Actions incluido. Consultar [publicación y pruebas desde una tablet](docs/WEB-PREVIEW.md) para habilitar Pages y obtener el enlace HTTPS. El guardado sigue siendo local a cada navegador.
+[Publicación con GitHub Pages y pruebas desde una tablet](docs/WEB-PREVIEW.md). El workflow publica únicamente la interfaz y los recursos de PDF.js; no incluye Electron ni envía tus documentos a un servidor.
 
 ## Desarrollo
 
-Requiere Node.js 22.12 o superior y npm. Usá el checkout existente; cada tarea de nube ya está aislada y no necesita otro worktree.
+Requiere Node.js 22.13 o superior y npm. Usar el checkout existente: cada tarea de nube ya está aislada y no necesita otro worktree.
 
 ```sh
 npm ci
 npm run dev             # interfaz web, puerto 5173
-npm run dev:desktop     # Vite + Electron, requiere una sesión gráfica
-npm run build           # verificación de tipos y compilación de la interfaz
-npm start               # Electron con dist/ ya compilado
+npm run dev:desktop     # Vite + Electron, requiere sesión gráfica
+npm run build           # copia recursos de PDF.js, verifica tipos y compila
+npm start               # Electron con dist/ compilado
 ```
 
-En Windows, ejecutar estos comandos desde PowerShell o una terminal en la carpeta del proyecto. `npm run dev:desktop` abre Electron; `npm run dev` abre únicamente el servidor de la interfaz web. La distribución como instalador queda para una próxima etapa.
+En Windows se ejecutan desde PowerShell o una terminal en la carpeta del proyecto. `npm run dev` inicia solo el servidor web; `npm run dev:desktop` abre Electron. Los scripts `predev`, `predev:desktop` y `prebuild` copian fuentes, CMaps y decodificadores de la dependencia local a `public/pdfjs/`; estos archivos generados no se versionan. El worker se empaqueta con Vite. No se usan CDNs para renderizar documentos.
 
-Electron usa un preload mínimo, aislamiento de contexto, sandbox y Node deshabilitado en el renderer. Las ventanas externas y la navegación se bloquean. No hay empaquetado/distribución de instaladores todavía.
+Electron mantiene Node deshabilitado en el renderer, sandbox y aislamiento de contexto. El preload expone únicamente la plataforma y una solicitud validada para abrir la ventana de audiencia. La ventana de audiencia no tiene controles de edición ni recibe notas privadas.
 
-## Funciones iniciales
-
-- Inicio con resumen y presentaciones recientes.
-- Panel con búsqueda y creación de presentaciones.
-- Vista de fases con nombre, duración, notas, estado y nuevas fases.
-- Modo de presentación con notas ampliadas; Escape vuelve a la edición. Aún no hay una ventana independiente para audiencia ni cronómetros activos.
-- Persistencia local en `localStorage`, con una presentación de ejemplo en el primer inicio. Los datos de navegador y Electron son independientes. Sin sincronización ni backend.
+La interfaz está verificada con Chromium en Linux. Las ventanas de Electron y el funcionamiento en Windows siguen pendientes de validación en una sesión gráfica. No se ha generado un instalador.
 
 ## Validación
 
-Con Vite o `npm run preview -- --port 5173` ejecutándose:
+Con Vite o el sitio compilado ejecutándose:
 
 ```sh
 npm test
 ```
 
-Para ejecutar las pruebas en PowerShell con Chrome instalado, por ejemplo: `$env:KT_CHROMIUM_PATH = "C:\Program Files\Google\Chrome\Application\chrome.exe"`.
+Usa Playwright con Chromium en `/usr/bin/chromium`. `KT_CHROMIUM_PATH` permite seleccionar otro ejecutable y `KT_TEST_URL` otra URL. En PowerShell, por ejemplo:
 
-La prueba usa Playwright con Chromium del sistema (`/usr/bin/chromium`). Para otra instalación, definir `KT_CHROMIUM_PATH`. `KT_TEST_URL` permite cambiar la URL. Cubre creación, edición, avance, persistencia al recargar, búsqueda y diseño móvil. En Linux, Electron necesita una sesión gráfica o Xvfb y las bibliotecas del sistema correspondientes.
+```powershell
+$env:KT_CHROMIUM_PATH = "C:\Program Files\Google\Chrome\Application\chrome.exe"
+$env:KT_TEST_URL = "http://127.0.0.1:5173"
+npm test
+```
 
-## Próximas integraciones
+Las pruebas cubren creación y guardado de presentaciones, edición de fases, PDF inválido y válido con render real, navegación y persistencia del documento, cronómetros con pausa y tiempo excedido, preguntas y revelado, audiencia sin notas privadas y ausencia de desbordamiento a 1024, 768 y 390 píxeles. `tests/fixtures/kt-demo.pdf` es un documento de prueba propio con dos páginas.
 
-`src/services/contracts.ts` define los contratos `PresentationRepository` y `PdfRenderer`. Son puntos de extensión, no integraciones ya implementadas:
+## Próximas etapas
 
-- **SQLite:** implementar el repositorio en el proceso principal de Electron; almacenar la base en `app.getPath('userData')`, incorporar migraciones y validar cada operación IPC. Seleccionar el driver y reconstruirlo para la ABI de Electron si es nativo.
-- **PDF.js:** instalar `pdfjs-dist`, empaquetar su worker con Vite y renderizar archivos locales en canvas. Agregar navegación de páginas y asociación del documento a una fase.
-
-No se necesitan credenciales ni servicios externos para este flujo inicial.
+Consultar [el plan incremental](docs/ROADMAP.md). SQLite será el almacenamiento definitivo de escritorio; siguen pendientes PPTX directo, recopilación de respuestas, QR y distribución para Windows. No se necesitan credenciales ni servicios externos para el flujo local actual.

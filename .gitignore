@@ -5,3 +5,6 @@ dist/
 !.env.example
 test-results/
 playwright-report/
+
+# Generated PDF.js resources, copied from the pinned npm dependency
+public/pdfjs/

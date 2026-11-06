@@ -13,6 +13,11 @@ export interface Phase {
   duration: number;
   notes: string;
   completed: boolean;
+  kind?: "content" | "question" | "break";
+  page?: number;
+  question?: string;
+  options?: string[];
+  correctAnswer?: number;
 }
 export interface PresentationRepository {
   list(): Promise<Presentation[]>;

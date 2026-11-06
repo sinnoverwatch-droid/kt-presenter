@@ -1,6 +1,5 @@
-import { useEffect, useRef, useState } from "react";
+import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import {
-  ArrowLeft,
   ArrowRight,
   Check,
   ChevronRight,
@@ -10,12 +9,17 @@ import {
   LayoutGrid,
   MonitorPlay,
   MoreHorizontal,
-  Play,
   Plus,
   Search,
   X,
 } from "lucide-react";
 import type { Presentation, Phase } from "./services/contracts";
+import { version } from "../package.json";
+const Session = lazy(() =>
+  import("./components/Session").then((module) => ({
+    default: module.Session,
+  })),
+);
 const initial: Presentation[] = [
   {
     id: "demo",
@@ -84,11 +88,9 @@ export default function App() {
   const [items, setItems] = useState(load);
   const [view, setView] = useState<"home" | "library" | "detail">("home");
   const [selected, setSelected] = useState("demo");
-  const [phaseId, setPhaseId] = useState("1");
   const [search, setSearch] = useState("");
   const [modal, setModal] = useState(false);
   const [title, setTitle] = useState("");
-  const [presenting, setPresenting] = useState(false);
   const [storageError, setStorageError] = useState(false);
   useEffect(() => {
     try {
@@ -101,7 +103,6 @@ export default function App() {
   useEffect(() => {
     const escape = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
-        setPresenting(false);
         setModal(false);
       }
     };
@@ -138,27 +139,10 @@ export default function App() {
     };
   }, [modal]);
   const current = items.find((p) => p.id === selected);
-  const phase =
-    current?.phases.find((p) => p.id === phaseId) || current?.phases[0];
   const open = (p: Presentation) => {
     setSelected(p.id);
-    setPhaseId(p.phases[0]?.id || "");
     setView("detail");
   };
-  const updatePhase = (changes: Partial<Phase>) =>
-    setItems(
-      items.map((p) =>
-        p.id === selected
-          ? {
-              ...p,
-              updatedAt: new Date().toISOString(),
-              phases: p.phases.map((f) =>
-                f.id === phase?.id ? { ...f, ...changes } : f,
-              ),
-            }
-          : p,
-      ),
-    );
   const create = () => {
     if (!title.trim()) return;
     const p: Presentation = {
@@ -175,7 +159,6 @@ export default function App() {
   };
   const total = (p: Presentation) =>
     p.phases.reduce((n, f) => n + f.duration, 0);
-  const phaseIndex = current?.phases.findIndex((f) => f.id === phase?.id) ?? 0;
   const cards =
     view === "home"
       ? items
@@ -183,7 +166,7 @@ export default function App() {
           p.title.toLocaleLowerCase().includes(search.toLocaleLowerCase()),
         );
   return (
-    <div className={presenting ? "app presenting" : "app"}>
+    <div className="app">
       <aside className="sidebar">
         <a
           className="brand"
@@ -467,179 +450,27 @@ export default function App() {
               )}
             </section>
           ) : (
-            current &&
-            phase && (
-              <>
-                <button
-                  className="text-button back-button"
-                  onClick={() => setView("library")}
-                >
-                  <ArrowLeft size={16} />
-                  Volver a presentaciones
-                </button>
-                <div className="section-heading detail-heading">
-                  <div>
-                    <div className="eyebrow">TU PRESENTACIÓN</div>
-                    <h1>{current.title}</h1>
-                    <p>
-                      {current.phases.filter((f) => f.completed).length} de{" "}
-                      {current.phases.length} fases completadas ·{" "}
-                      {total(current)} minutos
-                    </p>
-                  </div>
-                  <button
-                    className="primary"
-                    onClick={() => setPresenting(!presenting)}
-                  >
-                    <Play size={17} />
-                    {presenting ? "Salir de presentación" : "Presentar"}
-                  </button>
-                </div>
-                <div className="phase-layout">
-                  <section className="phase-list">
-                    <div className="section-heading">
-                      <h2>Fases</h2>
-                      <span className="count">{current.phases.length}</span>
-                    </div>
-                    {current.phases.map((f, i) => (
-                      <button
-                        className={phase.id === f.id ? "phase active" : "phase"}
-                        onClick={() => setPhaseId(f.id)}
-                        key={f.id}
-                      >
-                        <span
-                          className={
-                            f.completed ? "phase-number done" : "phase-number"
-                          }
-                        >
-                          {f.completed ? (
-                            <Check size={16} />
-                          ) : (
-                            String(i + 1).padStart(2, "0")
-                          )}
-                        </span>
-                        <span>
-                          <strong>{f.title}</strong>
-                          <small>{f.duration} min</small>
-                        </span>
-                        <ChevronRight size={16} />
-                      </button>
-                    ))}
-                    <button
-                      className="text-button add-phase"
-                      onClick={() => {
-                        const id = crypto.randomUUID();
-                        setItems(
-                          items.map((p) =>
-                            p.id === current.id
-                              ? {
-                                  ...p,
-                                  updatedAt: new Date().toISOString(),
-                                  phases: [
-                                    ...p.phases,
-                                    {
-                                      id,
-                                      title: "Nueva fase",
-                                      duration: 5,
-                                      notes: "",
-                                      completed: false,
-                                    },
-                                  ],
-                                }
-                              : p,
-                          ),
-                        );
-                        setPhaseId(id);
-                      }}
-                    >
-                      <Plus size={17} />
-                      Agregar fase
-                    </button>
-                  </section>
-                  <section className="phase-editor">
-                    <div className="editor-top">
-                      <span className="eyebrow">
-                        FASE {String(phaseIndex + 1).padStart(2, "0")}
-                      </span>
-                      <label className="duration">
-                        <Clock3 size={15} />
-                        <input
-                          aria-label="Duración en minutos"
-                          type="number"
-                          min="1"
-                          max="240"
-                          value={phase.duration}
-                          onChange={(e) =>
-                            updatePhase({
-                              duration: Math.max(
-                                1,
-                                Math.min(240, Number(e.target.value) || 1),
-                              ),
-                            })
-                          }
-                        />
-                        min
-                      </label>
-                    </div>
-                    <input
-                      className="phase-title"
-                      aria-label="Nombre de la fase"
-                      value={phase.title}
-                      onChange={(e) => updatePhase({ title: e.target.value })}
-                    />
-                    <label className="notes-label" htmlFor="notes">
-                      NOTAS DEL PRESENTADOR
-                    </label>
-                    <textarea
-                      id="notes"
-                      placeholder="¿Qué querés compartir en esta fase?"
-                      value={phase.notes}
-                      onChange={(e) => updatePhase({ notes: e.target.value })}
-                    />
-                    <div className="future-pdf">
-                      <FolderOpen size={20} />
-                      <div>
-                        <strong>Documentos PDF</strong>
-                        <p>
-                          La integración con PDF.js llegará en una próxima
-                          etapa.
-                        </p>
-                      </div>
-                      <span className="pill">PRÓXIMAMENTE</span>
-                    </div>
-                    <div className="editor-footer">
-                      <button
-                        className={
-                          phase.completed ? "secondary completed" : "secondary"
-                        }
-                        onClick={() =>
-                          updatePhase({ completed: !phase.completed })
-                        }
-                      >
-                        <Check size={17} />
-                        {phase.completed
-                          ? "Completada"
-                          : "Marcar como completada"}
-                      </button>
-                      <button
-                        className="text-button"
-                        disabled={phaseIndex === current.phases.length - 1}
-                        onClick={() =>
-                          setPhaseId(current.phases[phaseIndex + 1].id)
-                        }
-                      >
-                        Siguiente fase <ArrowRight size={17} />
-                      </button>
-                    </div>
-                  </section>
-                </div>
-              </>
+            current && (
+              <Suspense
+                fallback={
+                  <p role="status">Abriendo el espacio de conducción…</p>
+                }
+              >
+                <Session
+                  key={current.id}
+                  presentation={current}
+                  onBack={() => setView("library")}
+                  onChange={(next) =>
+                    setItems(items.map((p) => (p.id === next.id ? next : p)))
+                  }
+                />
+              </Suspense>
             )
           )}
           <footer>
             KT Presenter{" "}
             <span>Hecho para que tus ideas lleguen más lejos.</span>
-            <span>v0.1.0</span>
+            <span>v{version}</span>
           </footer>
         </main>
       </div>
