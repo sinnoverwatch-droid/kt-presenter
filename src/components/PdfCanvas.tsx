@@ -3,8 +3,8 @@ import {
   getDocument,
   GlobalWorkerOptions,
   type PDFDocumentProxy,
-} from "pdfjs-dist";
-import workerUrl from "pdfjs-dist/build/pdf.worker.min.mjs?url";
+} from "pdfjs-dist/legacy/build/pdf.mjs";
+import workerUrl from "pdfjs-dist/legacy/build/pdf.worker.min.mjs?url";
 GlobalWorkerOptions.workerSrc = workerUrl;
 export async function openPdf(blob: Blob) {
   const task = getDocument({
@@ -43,6 +43,8 @@ export function PdfCanvas({
   const canvas = useRef<HTMLCanvasElement>(null);
   const [width, setWidth] = useState(0);
   const [error, setError] = useState("");
+  const [rendering, setRendering] = useState(true);
+  const [attempt, setAttempt] = useState(0);
   useEffect(() => {
     const observer = new ResizeObserver((entries) =>
       setWidth(Math.floor(entries[0].contentRect.width)),
@@ -57,6 +59,7 @@ export function PdfCanvas({
       | ReturnType<Awaited<ReturnType<PDFDocumentProxy["getPage"]>>["render"]>
       | undefined;
     setError("");
+    setRendering(true);
     document
       .getPage(page)
       .then((pdfPage) => {
@@ -72,20 +75,45 @@ export function PdfCanvas({
         canvas.current.width = Math.ceil(viewport.width);
         canvas.current.height = Math.ceil(viewport.height);
         task = pdfPage.render({ canvas: canvas.current, viewport });
-        return task.promise;
+        return task.promise.then(() => {
+          if (!cancelled) setRendering(false);
+        });
       })
       .catch((error) => {
-        if (!cancelled && error?.name !== "RenderingCancelledException")
+        if (!cancelled && error?.name !== "RenderingCancelledException") {
+          setRendering(false);
+          console.error("PDF rendering failed:", error?.name, error?.message);
           setError("No se pudo dibujar esta página del PDF.");
+        }
       });
     return () => {
       cancelled = true;
       task?.cancel();
     };
-  }, [document, page, width]);
+  }, [document, page, width, attempt]);
   return (
-    <div className="pdf-canvas" ref={container}>
-      {error && <p role="alert">{error}</p>}
+    <div
+      className="pdf-canvas"
+      ref={container}
+      aria-busy={rendering}
+      data-render-state={error ? "error" : rendering ? "loading" : "ready"}
+    >
+      {error && (
+        <div className="pdf-render-error">
+          <p role="alert">{error}</p>
+          <button
+            className="secondary"
+            onClick={() => setAttempt((value) => value + 1)}
+          >
+            Reintentar página
+          </button>
+        </div>
+      )}
+      {rendering && (
+        <p className="pdf-render-status" aria-live="polite">
+          Preparando página {page}…
+        </p>
+      )}
       <canvas
         ref={canvas}
         hidden={!!error}

@@ -41,7 +41,7 @@ npm run build           # copia recursos de PDF.js, verifica tipos y compila
 npm start               # Electron con dist/ compilado
 ```
 
-En Windows se ejecutan desde PowerShell o una terminal en la carpeta del proyecto. `npm run dev` inicia solo el servidor web; `npm run dev:desktop` abre Electron. Los scripts `predev`, `predev:desktop` y `prebuild` copian fuentes, CMaps y decodificadores de la dependencia local a `public/pdfjs/`; estos archivos generados no se versionan. El worker se empaqueta con Vite. No se usan CDNs para renderizar documentos.
+En Windows se ejecutan desde PowerShell o una terminal en la carpeta del proyecto. `npm run dev` inicia solo el servidor web; `npm run dev:desktop` abre Electron. Los scripts `predev`, `predev:desktop` y `prebuild` copian fuentes, CMaps y decodificadores de la dependencia local a `public/pdfjs/`; estos archivos generados no se versionan. El visor y el worker usan la distribución `legacy` oficial de PDF.js para incluir compatibilidad con navegadores que no tienen las APIs JavaScript más recientes. El worker se empaqueta con Vite. No se usan CDNs para renderizar documentos.
 
 Electron mantiene Node deshabilitado en el renderer, sandbox y aislamiento de contexto. El preload expone únicamente la plataforma y una solicitud validada para abrir la ventana de audiencia. La ventana de audiencia no tiene controles de edición ni recibe notas privadas.
 
@@ -68,3 +68,5 @@ Las pruebas cubren creación y guardado de presentaciones, edición de fases, PD
 ## Próximas etapas
 
 Consultar [el plan incremental](docs/ROADMAP.md). SQLite será el almacenamiento definitivo de escritorio; siguen pendientes PPTX directo, recopilación de respuestas, QR y distribución para Windows. No se necesitan credenciales ni servicios externos para el flujo local actual.
+
+Para validar localmente un PDF adicional sin publicarlo en Git, definir `KT_PDF_COMPAT_FIXTURE` con su ruta y ejecutar `node --test tests/pdf-compatibility.test.mjs` con el servidor activo. La prueba simula la ausencia de APIs recientes de Map/WeakMap, renderiza todas las páginas y comprueba audiencia, navegación y cambio de resolución.
